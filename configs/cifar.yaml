@@ -1,0 +1,30 @@
+info: 使用MINST测试流程, DDP
+expe_root: .expe
+engine_name: CIFAR
+random:
+  seed: 0
+  deterministic: True
+dataset:
+  train:
+    batch_size: 64
+  test:
+    batch_size: 64
+model:
+  sync_bn: True
+optimizer:
+  name: RMSprop
+  kwargs:
+    lr: 0.001
+scheduler:
+  name: CosineAnnealingWithWarmUpLR
+loss:
+  name: CrossEntropyLoss
+train:
+  device: 2,3
+  epochs: 5
+  save_cp: False
+  early_stopping: 0
+  load_model: False
+  resume_training: False
+val:
+  mode: max

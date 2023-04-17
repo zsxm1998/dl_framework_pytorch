@@ -1,0 +1,14 @@
+*__pycache__
+*.ipynb_checkpoints
+.vscode/
+.expe*/
+*events.out.tfevents*
+*.json
+*.png
+*.jpg
+*.pt
+*.pth
+*.dat
+*.zip
+*.tar
+dataset/
