@@ -91,7 +91,7 @@ class Loggers():
 
     def add_images(self, tag, image_tensor, global_step=None, dataformats='NCHW'):
         if self.rank not in {-1,0}: return
-        self.tbwriter.add_images(tag, image_tensor, global_step, dataformats)
+        self.tbwriter.add_images(tag, image_tensor, global_step, dataformats=dataformats)
 
 
 def create_code_checkpoint(checkpoint_dir):
@@ -123,11 +123,11 @@ class _BaseTrainer(ABC):
         self.opt = opt
 
         #设置device, init DDP如果需要, 设置随机种子
-        self.device = select_device(opt.train.device, opt.dataset.train.batch_size, self.LOCAL_RANK, self.WORLD_SIZE)
+        self.device = select_device(opt.train.device, opt.dataset.batch_size, self.LOCAL_RANK, self.WORLD_SIZE)
         init_seeds(seed=opt.random.seed+1+self.RANK, deterministic=opt.random.deterministic)
 
         #判断是恢复实验还是新实验
-        if not hasattr(opt.train, 'resume_training') or not opt.train.resume_training:
+        if not opt.train.get('resume_training', None):
             self.resume_training = False
             self.train_time_str = time.strftime("%m-%d_%H:%M:%S", time.localtime())
         else: #改train.load_model, 改info
@@ -167,7 +167,7 @@ class _BaseTrainer(ABC):
         else:
             raise ValueError(f'opt.val.mode should be either "max" or "min", but got {opt.val.mode}')
 
-    def get_dataloader(self, dataset, batch_size, train: bool, drop_last=False, shuffle=None, workers=8, collate_fn=None):
+    def get_dataloader(self, dataset, batch_size, train: bool, drop_last=False, shuffle=None, workers=8, collate_fn=None, **kwargs):
         batch_size = batch_size // self.WORLD_SIZE if train and self.RANK != -1 else batch_size
         batch_size = min(batch_size, len(dataset))
         nd = torch.cuda.device_count()  # number of CUDA devices
@@ -187,14 +187,14 @@ class _BaseTrainer(ABC):
             pin_memory=str(os.getenv('PIN_MEMORY', True)).lower() == 'true',
             collate_fn=collate_fn,
             worker_init_fn=seed_worker,
+            **kwargs
         )
 
     def get_optimizer(self):
         assert hasattr(self, 'net'), 'get_optimizer should be called after creating network (self.net).'
-        if not hasattr(self.opt, 'optimizer'):
-            raise ValueError('The config yaml file should contain the setting of "optimizer"')
+        assert hasattr(self.opt, 'optimizer'), 'The config yaml file should contain the setting of "optimizer"'
         name = self.opt.optimizer.name
-        kwargs = self.opt.optimizer.kwargs
+        kwargs = self.opt.optimizer.get('kwargs', {})
         if hasattr(torch.optim, name):
             self.optimizer = getattr(torch.optim, name)(self.net.parameters(), **kwargs)
             return True
@@ -211,10 +211,9 @@ class _BaseTrainer(ABC):
         
     def get_scheduler(self):
         assert hasattr(self, 'optimizer'), 'get_scheduler should be called after creating an optimizer (self.optimizer).'
-        if not hasattr(self.opt, 'scheduler'):
-            raise ValueError('The config yaml file should contain the setting of "scheduler"')
+        assert hasattr(self.opt, 'scheduler'), 'The config yaml file should contain the setting of "scheduler"'
         name = self.opt.scheduler.name
-        kwargs = self.opt.scheduler.kwargs if hasattr(self.opt.scheduler, 'kwargs') else None
+        kwargs = self.opt.scheduler.get('kwargs', {})
         if hasattr(torch.optim.lr_scheduler, name):
             self.scheduler = getattr(torch.optim.lr_scheduler, name)(self.optimizer, **kwargs)
             return True
@@ -223,10 +222,10 @@ class _BaseTrainer(ABC):
             self.scheduler = CosineAnnealingWithWarmUpLR(
                 self.optimizer,
                 T_total = self.epochs if self.epochs != 0 else 1,
-                eta_min = self.opt.optimizer.kwargs.lr / (kwargs.eta_min_ratio if hasattr(kwargs, 'eta_min_ratio') else 100),
-                warm_up_lr = self.opt.optimizer.kwargs.lr / (kwargs.warm_up_lr_ratio if hasattr(kwargs, 'warm_up_lr_ratio') else 100),
-                warm_up_step = kwargs.warm_up_step if hasattr(kwargs, 'warm_up_step') else self.epochs // 10,
-                verbose = kwargs.verbose if hasattr(kwargs, 'verbose') else False
+                eta_min = self.opt.optimizer.kwargs.lr / kwargs.get('eta_min_ratio', 100),
+                warm_up_lr = self.opt.optimizer.kwargs.lr / kwargs.get('warm_up_lr_ratio', 100),
+                warm_up_step = kwargs.get('warm_up_step', self.epochs // 10),
+                verbose = kwargs.get('verbose', False),
             )
             return True
         else:
@@ -240,17 +239,17 @@ class _BaseTrainer(ABC):
             self.net = DataParallel(self.net)
             self.loggers.info('⚠️  Using multiple GPU training based on DP.')
         elif self.device.type != 'cpu' and self.RANK != -1:
-            if hasattr(self.opt, 'model') and hasattr(self.opt.model, 'sync_bn') and self.opt.model.sync_bn:
+            if hasattr(self.opt, 'model') and self.opt.model.get('sync_bn'):
                 self.net = torch.nn.SyncBatchNorm.convert_sync_batchnorm(self.net).to(self.device)
                 self.loggers.info('⚠️  Using SyncBatchNorm()')
-            self.net = DistributedDataParallel(self.net, device_ids=[self.LOCAL_RANK], output_device=self.LOCAL_RANK)
+            self.net = DistributedDataParallel(self.net, device_ids=[self.LOCAL_RANK], output_device=self.LOCAL_RANK,
+                                               find_unused_parameters=self.opt.model.find_unused_parameters)
             self.loggers.info('⚠️  Using multiple GPU training based on DDP.')
 
     def get_loss_function(self):
-        if not hasattr(self.opt, 'loss'):
-            raise ValueError('The config yaml file should contain the setting of "loss"')
+        assert hasattr(self.opt, 'loss'), 'The config yaml file should contain the setting of "loss"'
         name = self.opt.loss.name
-        kwargs = self.opt.loss.kwargs if hasattr(self.opt.loss, 'kwargs') else {}
+        kwargs = self.opt.loss.get('kwargs', {})
         if hasattr(torch.nn, name):
             self.loss_function = getattr(torch.nn, name)(**kwargs)
             return True
