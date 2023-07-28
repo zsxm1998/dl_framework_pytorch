@@ -127,7 +127,7 @@ class _BaseTrainer(ABC):
         init_seeds(seed=opt.random.seed+1+self.RANK, deterministic=opt.random.deterministic)
 
         #判断是恢复实验还是新实验
-        if not opt.train.get('resume_training', None):
+        if not opt.train.get('resume_training', False):
             self.resume_training = False
             self.train_time_str = time.strftime("%m-%d_%H:%M:%S", time.localtime())
         else: #改train.load_model, 改info
@@ -314,7 +314,7 @@ class _BaseTrainer(ABC):
             save_dict['scheduler'] = self.scheduler.state_dict()
             save_dict['epoch'] = epoch
             save_dict['best_val_score'] = self.best_val_score
-            file_name = f'Checkpoint_epoch{epoch:04d}.pth' if self.save_cp else f'Checkpoint_last.pth'
+            file_name = f'Checkpoint_epoch{epoch+1:04d}.pth' if self.save_cp else f'Checkpoint_last.pth'
             torch.save(save_dict, os.path.join(self.checkpoint_dir, file_name))
             self.loggers.info(f'{file_name} saved !')
         elif epoch == 'best':

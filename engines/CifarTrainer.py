@@ -90,7 +90,7 @@ class CifarTrainer(_BaseTrainer):
 
                 if self.check_update_val_score(acc): 
                     self.save_checkpoint(epoch='best')
-                self.save_checkpoint(epoch=epoch+1) # 保存每轮的save_checkpoint一定要在更新best_val_score后面
+                self.save_checkpoint(epoch=epoch) # 保存每轮的save_checkpoint一定要在更新best_val_score后面
 
                 # 检测是否达到Early Stopping
                 if self.check_early_stopping():
