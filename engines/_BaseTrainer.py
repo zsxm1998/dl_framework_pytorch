@@ -20,7 +20,7 @@ from concurrent_log_handler import ConcurrentRotatingFileHandler
 
 from models import load_param
 from utils.easydict import EasyDict
-from utils.general import init_seeds, emojis, check_version
+from utils.general import init_seeds, emojis
 from utils.gitignore_parser import ignorer_from_gitignore
 from utils.torch_utils import get_local_rank, get_rank, get_world_size, seed_worker
 from utils.torch_utils import de_parallel, select_device, smart_inference_mode
@@ -256,7 +256,7 @@ class _BaseTrainer(ABC):
         else:
             return False
 
-    def load_checkpoint(self, load_dir=None):
+    def load_checkpoint(self, load_dir=None, load_param_func=load_param):
         r"""Load checkpoint. In the :func:`__init__` of :class:`Trainer`, this function should be called
         after creating net, optimizer, and scheduler.
 
@@ -276,7 +276,7 @@ class _BaseTrainer(ABC):
                 try:
                     network.load_state_dict(loaded['weight'])
                 except RuntimeError:
-                    load_param(network, loaded['weight'], logger=self.loggers)
+                    load_param_func(network, loaded['weight'], logger=self.loggers)
                 self.optimizer.load_state_dict(loaded['optimizer'])
                 self.scheduler.load_state_dict(loaded['scheduler'])
                 self.loggers.info(f'Resume training from checkpoint {load_dir}')
@@ -284,7 +284,7 @@ class _BaseTrainer(ABC):
                 try:
                     network.load_state_dict(loaded['weight'])
                 except RuntimeError:
-                    load_param(network, loaded['weight'], logger=self.loggers)
+                    load_param_func(network, loaded['weight'], logger=self.loggers)
                 self.loggers.info(f'Only net weight loaded from checkpoint {load_dir}')
         else:
             if self.resume_training:
@@ -293,7 +293,7 @@ class _BaseTrainer(ABC):
             try:
                 network.load_state_dict(loaded)
             except RuntimeError:
-                load_param(network, loaded, logger=self.loggers)
+                load_param_func(network, loaded, logger=self.loggers)
             self.loggers.info(f'Net weight loaded from {load_dir}')
         if self.RANK != -1:
             dist.barrier()
