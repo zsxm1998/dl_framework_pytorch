@@ -5,6 +5,7 @@ import random
 import pkg_resources as pkg
 import numpy as np
 import torch
+import pickle
 
 
 def emojis(str=''):
@@ -53,3 +54,66 @@ def init_seeds(seed=0, deterministic=False):
     else:
         torch.backends.cudnn.benchmark = True
         torch.backends.cudnn.deterministic = False
+
+
+class AverageMeter(object):
+    """Computes and stores the average and current value"""
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self._val = torch.tensor(0, dtype=torch.float64)
+        self._sum = torch.tensor(0, dtype=torch.float64)
+        self._count = torch.tensor(0, dtype=torch.int64)
+
+    def update(self, val, n=1):
+        self._val = val
+        self._sum += val * n
+        self._count += n
+
+    @property
+    def val(self):
+        return self._val.item()
+    
+    @property
+    def sum(self):
+        return self._sum.item()
+    
+    @property
+    def count(self):
+        return self._count.item()
+    
+    @property
+    def avg(self):
+        return (self._sum / self._count).item()
+
+
+def partial_train_layers(model, partial_list, logger=None):
+    """Train partial layers of a given model."""
+    if logger is None:
+        print_func = print
+    else:
+        print_func = logger.info
+    train_list = []
+    for name, p in model.named_parameters():
+        p.requires_grad = False
+        for trainable in partial_list:
+            if trainable in name:
+                p.requires_grad = True
+                train_list.append(name)
+                break
+    print_func(f'Partial train parameters: {train_list}')
+    return model
+
+
+def read_pkl(data_url):
+    file = open(data_url,'rb')
+    content = pickle.load(file)
+    file.close()
+    return content
+
+def count_parameters(model):
+    model_params = 0
+    for parameter in model.parameters():
+        model_params = model_params + parameter.numel()
+    return model_params

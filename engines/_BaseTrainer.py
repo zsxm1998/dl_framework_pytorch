@@ -43,7 +43,7 @@ class Loggers():
     使用了ConcurrentRotatingFileHandler保证多进程写日志文件的安全性。
     """
     def __init__(self, rank, log_dir, tensorboard_dir):
-        self.rank = rank
+        self.RANK = rank
         os.makedirs(os.path.dirname(log_dir), exist_ok=True)
         self.logger = logging.getLogger('logger')
         self.logger.setLevel(logging.DEBUG if rank in {-1,0} else logging.ERROR)
@@ -69,7 +69,7 @@ class Loggers():
             self.tbwriter = SummaryWriter(log_dir=tensorboard_dir)
 
     def __del__(self):
-        if self.rank in {-1,0}:
+        if self.RANK in {-1,0}:
             self.tbwriter.close()
 
     def info(self, msg):
@@ -82,15 +82,15 @@ class Loggers():
         self.logger.error(msg)
 
     def add_scalar(self, tag, scalar_value, global_step=None):
-        if self.rank not in {-1,0}: return
+        if self.RANK not in {-1,0}: return
         self.tbwriter.add_scalar(tag, scalar_value, global_step)
 
     def add_histogram(self, tag, values, global_step=None):
-        if self.rank not in {-1,0}: return
+        if self.RANK not in {-1,0}: return
         self.tbwriter.add_histogram(tag, values, global_step)
 
     def add_images(self, tag, image_tensor, global_step=None, dataformats='NCHW'):
-        if self.rank not in {-1,0}: return
+        if self.RANK not in {-1,0}: return
         self.tbwriter.add_images(tag, image_tensor, global_step, dataformats=dataformats)
 
 
