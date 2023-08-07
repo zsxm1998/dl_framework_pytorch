@@ -203,11 +203,11 @@ class _BaseTrainer(ABC):
             self.optimizer = getattr(torch.optim, name)(self.net.parameters(), **kwargs)
             return True
         elif name.startswith('Ranger'):
-            import utils.optim.ranger as ranger
+            import optim.ranger as ranger
             self.optimizer = getattr(ranger, name)(self.net.parameters(), **kwargs)
             return True
         elif name == 'Lion':
-            from utils.optim.lion import Lion
+            from optim.lion import Lion
             self.optimizer = Lion(self.net.parameters(), **kwargs)
             return True
         else:
@@ -222,7 +222,7 @@ class _BaseTrainer(ABC):
             self.scheduler = getattr(torch.optim.lr_scheduler, name)(self.optimizer, **kwargs)
             return True
         elif name == 'CosineAnnealingWithWarmUpLR':
-            from utils.optim.lr_scheduler import CosineAnnealingWithWarmUpLR
+            from optim.lr_scheduler import CosineAnnealingWithWarmUpLR
             self.scheduler = CosineAnnealingWithWarmUpLR(
                 self.optimizer,
                 T_total = self.epochs if self.epochs != 0 else 1,
