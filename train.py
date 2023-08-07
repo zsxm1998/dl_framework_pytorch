@@ -9,6 +9,7 @@ def get_args():
     parser = argparse.ArgumentParser(description='Train the Network',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--device', '-d', type=str, help='Set training devices.')
+    parser.add_argument('--config', '-c', type=str, help='Path to config file')
     parser.add_argument('--cifar', action='store_true', help='CifarTrainer')
 
     return parser.parse_args()

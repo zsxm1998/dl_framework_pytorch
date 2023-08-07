@@ -116,6 +116,10 @@ class _BaseTrainer(ABC):
         self.RANK = get_rank()
         self.WORLD_SIZE = get_world_size()
 
+        #根据控制台修改参数文件
+        if hasattr(args, 'config') and args.config is not None:
+            opt_file = args.config
+
         #加载参数，并根据控制台传参args修改
         with open(opt_file) as f:
             opt = EasyDict(yaml.full_load(f))
