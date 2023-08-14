@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 from logging import Formatter, StreamHandler, Filter #, FileHandler
 
 import torch
+import torch.nn as nn
 import torch.distributed as dist
 from torch.nn.parallel import DataParallel, DistributedDataParallel
 from torch.utils.data import DataLoader
@@ -20,7 +21,7 @@ from concurrent_log_handler import ConcurrentRotatingFileHandler # pip install c
 
 from models import load_param
 from utils.easydict import EasyDict
-from utils.general import init_seeds, emojis
+from utils.general import init_seeds, emojis, colorstr
 from utils.gitignore_parser import ignorer_from_gitignore
 from utils.torch_utils import get_local_rank, get_rank, get_world_size, seed_worker
 from utils.torch_utils import de_parallel, select_device, smart_inference_mode
@@ -212,6 +213,42 @@ class _BaseTrainer(ABC):
             return True
         else:
             return False
+        
+    def get_smart_optimizer(self):
+        '''3-param group optimizer: 0) weights with decay, 1) weights no decay, 2) biases no decay'''
+
+        assert hasattr(self, 'net'), 'get_optimizer should be called after creating network (self.net).'
+        assert hasattr(self.opt, 'optimizer'), 'The config yaml file should contain the setting of "optimizer"'
+        name = self.opt.optimizer.name
+        kwargs = self.opt.optimizer.get('kwargs', {})
+
+        g = [], [], []  # optimizer parameter groups
+        bn = tuple(v for k, v in nn.__dict__.items() if 'Norm' in k)  # normalization layers, i.e. BatchNorm2d()
+        for v in self.net.modules():
+            for p_name, p in v.named_parameters(recurse=0):
+                if p_name == 'bias':  # bias (no decay)
+                    g[2].append(p)
+                elif p_name == 'weight' and isinstance(v, bn):  # weight (no decay)
+                    g[1].append(p)
+                else:
+                    g[0].append(p)  # weight (with decay)
+
+        if hasattr(torch.optim, name):
+            self.optimizer = getattr(torch.optim, name)(g[0], **kwargs)
+        elif name.startswith('Ranger'):
+            import optim.ranger as ranger
+            self.optimizer = getattr(ranger, name)(g[0], **kwargs)
+        elif name == 'Lion':
+            from optim.lion import Lion
+            self.optimizer = Lion(g[0], **kwargs)
+        else:
+            return False
+        
+        self.optimizer.add_param_group({'params': g[1], 'weight_decay': 0.0})
+        self.optimizer.add_param_group({'params': g[2], 'weight_decay': 0.0})
+        self.loggers.info(f"{colorstr('optimizer:')} {type(self.optimizer).__name__}(lr={kwargs['lr']}) with parameter groups "
+                          f"{len(g[1])} weight(decay=0.0), {len(g[0])} weight(decay={kwargs['weight_decay']}), {len(g[2])} bias")
+        return True
         
     def get_scheduler(self):
         assert hasattr(self, 'optimizer'), 'get_scheduler should be called after creating an optimizer (self.optimizer).'
