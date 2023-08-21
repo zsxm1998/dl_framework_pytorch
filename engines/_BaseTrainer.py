@@ -190,6 +190,7 @@ class _BaseTrainer(ABC):
             sampler=sampler,
             num_workers=nw,
             pin_memory=str(os.getenv('PIN_MEMORY', True)).lower() == 'true',
+            drop_last=drop_last,
             collate_fn=collate_fn,
             worker_init_fn=seed_worker,
             **kwargs
