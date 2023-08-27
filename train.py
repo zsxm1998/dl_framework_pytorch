@@ -1,8 +1,9 @@
 import argparse
-
 from torch.distributed.elastic.multiprocessing.errors import record
-
 from engines import *
+
+import os
+os.environ['CUDA_DEVICE_ORDER'] = "PCI_BUS_ID"
 
 
 def get_args():
