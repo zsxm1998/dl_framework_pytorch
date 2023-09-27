@@ -315,10 +315,7 @@ class _BaseTrainer(ABC):
             if self.resume_training:
                 self.start_epoch = loaded['epoch'] + 1
                 self.best_val_score = loaded['best_val_score']
-                try:
-                    network.load_state_dict(loaded['weight'])
-                except RuntimeError:
-                    load_param_func(network, loaded['weight'], logger=self.loggers)
+                network.load_state_dict(loaded['weight'])
                 self.optimizer.load_state_dict(loaded['optimizer'])
                 self.scheduler.load_state_dict(loaded['scheduler'])
                 self.loggers.info(f'Resume training from checkpoint {load_dir}')
