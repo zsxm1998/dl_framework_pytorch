@@ -54,7 +54,7 @@ class Loggers():
         stdf.setFormatter(Formatter('[%(levelname)s]: %(message)s'))
         self.logger.addHandler(stdf)
         filef = ConcurrentRotatingFileHandler(
-            log_dir, 'a', 512*1024, 5,
+            log_dir, 'a', 512*1024*1024, 5,
             lock_file_directory=os.path.join(tempfile.gettempdir(), f'{os.getlogin()}#{os.path.basename(os.path.dirname(log_dir))}')
         )
         filef.addFilter(LevelFilter('file_filter', logging.INFO))
