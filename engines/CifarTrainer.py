@@ -22,14 +22,14 @@ class CifarTrainer(_BaseTrainer):
             train_set = datasets.CIFAR10('./dataset/cifar10', train=True, download=True, transform=transforms.Compose([transforms.ToTensor(),]))
         self.train_loader = self.get_dataloader(
             train_set,
-            self.opt.dataset.train.batch_size,
+            self.opt.dataset.batch_size,
             train=True,
         )
         if self.RANK in {-1,0}:
             test_set = datasets.CIFAR10('./dataset/cifar10', train=False, transform=transforms.Compose([transforms.ToTensor(),]))
             self.test_loader = self.get_dataloader(
                 test_set,
-                self.opt.dataset.test.batch_size,
+                self.opt.dataset.batch_size,
                 train=False
             )
 
